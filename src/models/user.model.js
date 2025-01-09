@@ -1,4 +1,4 @@
-import mongoose, { Mongoose } from "mongoose";
+import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema({
     username : {
@@ -42,4 +42,42 @@ const userSchema = new mongoose.Schema({
 
 },{timestamps : true})
 
+
+userSchema.pre('save' , async(next)=>{
+    if(this.isModified('password'))
+        this.password = await bcrypt.hash(this.password , 10)
+
+    next()
+})
+
+userSchema.methods.matchPassword = async function(password){
+    return await bcrypt.compare(password , this.password)
+}
+
+userSchema.method.generateAccessToken = async()=>{
+    const payload = {
+        _id : this._id,
+        email : this.email,
+        username : this.username
+    }
+    try{
+        return await jwt.sign(payload , process.env.ACCESS_TOKEN_SECRET , {expiresIn : `${process.env.ACCESS_TOKEN_EXPIRY}`})
+    
+    }catch(err){
+        console.log('error while creating access token ' , err)
+    }
+}
+
+userSchema.method.generateRefreshToken = async()=>{
+    const payload = {
+        _id : this._id,
+        
+    }
+    try{
+        return await jwt.sign(payload , process.env.REFRESH_TOKEN_SECRET , {expiresIn : `${process.env.REFRESH_TOKEN_EXPIRY}`})
+    
+    }catch(err){
+        console.log('error while creating refresh token' , err)
+    }
+}
 export const User = mongoose.model('user', userSchema)
