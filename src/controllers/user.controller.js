@@ -4,6 +4,18 @@ import {ApiResponse} from "../utils/ApiResponse.js";
 import {User} from "../models/user.model.js";
 import { uploadImageOnCloudinary } from "../utils/cloudinary.js";
 
+const generateAccessAndRefreshToken = async(userId)=>{
+    
+    const user = await User.findById(userId)
+
+    const accessToken = await user.generateAccessToken()
+    const refreshToken = await user.generateRefreshToken()
+    
+    user.refreshToken = refreshToken
+    await user.save({validateBeforeSave : false})
+
+    return {accessToken , refreshToken}
+}
 
 const signUp = asyncHandler(async(req,res)=>{
     
@@ -59,4 +71,37 @@ const signUp = asyncHandler(async(req,res)=>{
     
 })
 
-export {signUp}
+const signIn = asyncHandler(async(req,res)=>{
+    
+    const {email , password , username} = req.body
+
+    if([email , username].some((field=>field?.trim()) === ''))
+        return new ApiError(400 , 'Email or Username is required')
+
+    const user = await User.find({
+        $or : [{email},{username}]
+    }).select('-password' , '-refreshToken')
+
+    if(!user)
+        return new ApiError(404 , 'User not found!')
+    
+    const isPasswordMatched = await user.matchPassword(password)
+
+    if(!isPasswordMatched)  
+        return new ApiError(401 , 'inValid credentials')
+
+    const {accessToken , refreshToken } = await generateAccessAndRefreshToken(user._id)
+
+    const options = {
+        httpsOnly : true,
+        secure : true
+    }
+
+    return res.status(201)
+    .cookie('accessToken' , accessToken, options)
+    .cookie('refreshToken' , refreshToken , options)
+    .json(
+        new ApiResponse(200 , 'User loggedIn Succesfully' , user)
+    )
+})
+export {signUp , signIn}
