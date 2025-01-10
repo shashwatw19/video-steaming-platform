@@ -18,7 +18,12 @@ const userSchema = new mongoose.Schema({
     avatar : {
         type : String,
         required : true,
-        default : '../public/images/default_cover.png'
+      
+    },
+    coverImage : {
+        type : String,
+        required : true,
+       
     },
     watchHistory : [
         {
