@@ -11,7 +11,7 @@ const playListSchema  = new mongoose.Schema({
     videos : [
         {
             type : mongoose.Schema.ObjectId,
-            ref : 'User'
+            ref : 'Video'
         }
     ],
     owner : {

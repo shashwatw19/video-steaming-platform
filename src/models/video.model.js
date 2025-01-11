@@ -1,9 +1,5 @@
 import mongoose from "mongoose";
 const videoSChema = new mongoose.Schema({
-    videoUser : {
-        type : String,
-        required : [true , 'Video User is required']
-    },
     title : {
         type : String,
         required : [true , 'Title is required']
