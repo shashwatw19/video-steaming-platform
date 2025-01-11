@@ -12,7 +12,7 @@ const otpSchema = new mongoose.Schema({
     createdAt : {
         type : Date,
         default : Date.now(),
-        expires : Date.now() + 5*60 //this document will automatically be deleted after 5 mins of its creation time
+        expires : Date.now() + 5 * 60 * 1000    //this document will automatically be deleted after 5 mins of its creation time
     }
 },{timestamps:true})
 
@@ -32,5 +32,8 @@ otpSchema.pre('save', async function (next){
     next()
 })
 
-
+otpSchema.methods.generateOtp = async function(){
+    const otp = Math.floor(100000 + Math.random() * 900000)
+    return otp
+}
 export const Otp = mongoose.model('otp' , otpSchema)

@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
-
+import {mailSender} from '../utils/mailSender.js'
+import crypto from 'crypto'
 const userSchema = new mongoose.Schema({
     username : {
         type : String,
@@ -37,13 +38,17 @@ const userSchema = new mongoose.Schema({
     resetPasswordToken : {
         type : String
     },
-    resetPasswordExpire : {
+    resetPasswordExpires : {
         type : Date
     },
     password : {
         type : String,
         required : [true , 'Password is required']
     },
+    additionalDetails : {
+        type : mongoose.Schema.Types.ObjectId,
+        ref : 'Profile'
+    }
 
 },{timestamps : true})
 
@@ -59,7 +64,7 @@ userSchema.methods.matchPassword = async function(password){
     return await bcrypt.compare(password , this.password)
 }
 
-userSchema.method.generateAccessToken = async()=>{
+userSchema.methods.generateAccessToken = async function(){
     const payload = {
         _id : this._id,
         email : this.email,
@@ -73,7 +78,7 @@ userSchema.method.generateAccessToken = async()=>{
     }
 }
 
-userSchema.method.generateRefreshToken = async()=>{
+userSchema.methods.generateRefreshToken = async function(){
     const payload = {
         _id : this._id,
         
@@ -85,6 +90,28 @@ userSchema.method.generateRefreshToken = async()=>{
         console.log('error while creating refresh token' , err)
     }
 }
+
+userSchema.methods.generateResetPasswordToken = function(){
+    
+    try {
+        const resetToken = crypto.randomBytes(20).toString('hex');
+        this.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+        this.resetPasswordExpires = Date.now() + 10 * 60 * 1000; // Token expires in 10 minutes
+        return resetToken;
+    }catch (error) {
+        console.log('Error while creating reset password token' , error)
+        
+    }
+};
+
+userSchema.pre('save' , async(next)=>{
+    
+    if(this.isModified('resetPasswordToken'))
+        await mailSender(this.email , 'Reset Password' , `Click on the link to reset password http://localhost:3000/resetpassword/${this.resetPasswordToken}`)
+    
+    next()
+})
+
 export const User = mongoose.model('user', userSchema)
 
 

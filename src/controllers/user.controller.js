@@ -3,6 +3,8 @@ import {ApiError} from "../utils/ApiError.js";
 import {ApiResponse} from "../utils/ApiResponse.js";
 import {User} from "../models/user.model.js";
 import { uploadImageOnCloudinary } from "../utils/cloudinary.js";
+import { Otp } from "../models/otp.model.js";
+import {Profile} from '../models/profile.model.js'
 
 const generateAccessAndRefreshToken = async(userId)=>{
     
@@ -17,9 +19,15 @@ const generateAccessAndRefreshToken = async(userId)=>{
     return {accessToken , refreshToken}
 }
 
+// flow for signup
+// 1.first the request will be sent to createOtp
+// 2. then it will be sent to sign where otp will be verfied
+// 3. then the user will be created
+
+
 const signUp = asyncHandler(async(req,res)=>{
     
-    const {username , email , password } = req.body
+    const {username , email , password  , otp} = req.body
 
     if([username , email , password].some((field => field?.trim()) === ''))
         return new ApiError(400 , 'All fields are required')
@@ -51,13 +59,44 @@ const signUp = asyncHandler(async(req,res)=>{
         coverUrl = '../public/images/default_cover.png'
     }
 
+    // verify email thorugh otp
+    let currentOtp = otp
+    
+    const generatedOtp = await Otp.find({email}).select('otp').sort({createdAt : -1}).limit(1)
+    
+    if(!generatedOtp)
+        return new ApiError(404 , 'Otp not found')
 
+    if(generatedOtp.otp !== currentOtp)
+        return new ApiError(401 , 'Invalid Otp')
+
+
+    // create a new profileDetails for the user
+
+    const userProfile = await Profile.create({
+        bio : undefined,
+        social : {
+            youtube : undefined,
+            twitter : undefined,
+            facebook : undefined,
+            linkedin : undefined,
+            instagram : undefined
+        },
+        gender : undefined
+    })
+
+    if(!userProfile)
+        return new ApiError(403 , 'Error while creating user profile')
+
+
+    // craete a new User
     const user = await User.create({
         username : username.toLowerCase(),
         email,
         password,
         avatar : avatarUrl,
-        coverImage : coverUrl
+        coverImage : coverUrl,
+        additionalDetails : userProfile._id
     })
         
     const createdUser = await user.findById(user._id).select('-password' , '-refreshToken')
@@ -104,4 +143,170 @@ const signIn = asyncHandler(async(req,res)=>{
         new ApiResponse(200 , 'User loggedIn Succesfully' , user)
     )
 })
-export {signUp , signIn}
+
+const logout = asyncHandler(async(req,res)=>{
+    const currentUser = req.user._id
+
+    await User.findByIdAndUpdate(currentUser._id , 
+        {
+            $unset : {
+                refreshToken : 1
+            }
+        },
+        {
+            new : true
+        })
+    
+    const options = {
+        httpOnly : true,
+        secure : true
+    }
+
+
+    return res.status(201)
+    .clearCookie('accessToken' , options)
+    .clearCookie('refreshToken' , options)
+    .json(
+        new ApiResponse(200 , 'User logged out successfully')
+    )
+})
+
+const forgotPassword = asyncHandler(async(req,res)=>{
+    
+    const {email} = req.body
+    
+    const user = await User.findOne({ email });
+    if(!user)
+        throw new ApiError(404 , 'User not found with this email')
+
+    const resetPasswordToken =  await user.generateResetPasswordToken()
+
+    if(!resetPasswordToken)
+        throw new ApiError(404 , 'Error while generating reset password token')
+
+    await user.save({ validateBeforeSave: false })
+})
+const resetPassword = asyncHandler(async(req,res)=>{
+    const {resetPasswordToken } = req.params
+
+    const {password , newPassword} = req.body
+
+    const user = await User.findOne({resetPasswordToken}).select('-refreshToken' , '-password')
+    
+   
+    if(!user)
+        throw new ApiError(404 , 'Invalid reset password Token')
+
+    if(!user.matchPassword(password))
+        throw new ApiError(401 , 'wrong credentials')
+
+    if(user.resetPasswordExpires < Date.now())
+        throw new ApiError(403 , 'resetPassword Token expired')
+
+    user.password = newPassword
+    user.resetPasswordToken = undefined
+    user.resetPasswordExpires = undefined
+
+    await user.save()
+
+    return res.status(201).json(
+        new ApiResponse(200 , 'Password Reset Successfull' , { _id : user._id , username : user.username , email : user.email} )
+    )
+})
+
+const updatePassword = asyncHandler(async(req,res)=>{
+    const user = req.user._id
+    
+    const {password , newPassword} = req.body
+
+    const validUser = await user.findOne({_id}).select('-refreshtoken' , '-password')
+
+    if(!validUser)
+        return new ApiError(403 , 'User not found')
+    if(!validUser.matchPassword(password))
+        return new ApiError(401 , 'Invalid credentials')
+
+    validUser.password = newPassword
+
+    return res.status(201).json(
+        new ApiResponse(200 , 'Password updated' , {validUser})
+    )
+
+})
+
+const updateAvatarImage = asyncHandler(async(req,res)=>{
+    const user = req.user._id
+
+    const newAvatarImage = req.files?.avatar[0]?.path
+
+    if(!newAvatarImage)
+        return new ApiError(400 , 'please provide an image')
+
+    const response = await uploadImageOnCloudinary(newAvatarImage)
+    
+    if(!response)
+        return new ApiError(403 , 'error while uploading avatar image ')
+
+    user.avatar = response?.secure_url
+
+    user.save()
+
+    return res.status(201).json(
+        new ApiResponse(200 , 'Avatar iamge update' , {avatar : user.avatar})
+    )
+})
+const updateCoverImage = asyncHandler(async(req,res)=>{
+    const user = req.user._id
+
+    const newCoverImage = req.files?.coverImage[0]?.path
+
+    if(!newCoverImage)
+        return new ApiError(400 , 'please provide an image')
+
+    const response = await uploadImageOnCloudinary(newCoverImage)
+    
+    if(!response)
+        return new ApiError(403 , 'error while uploading cover image ')
+
+    user.coverImage = response?.secure_url
+
+    user.save()
+
+    return res.status(201).json(
+        new ApiResponse(200 , 'Avatar iamge update' , {coverImage : user.coverImage})
+    )
+})
+const updateProfile = asyncHandler(async(req , res)=>{
+    const user = req.user._id
+
+    const {bio , social , gender} = req.body
+
+    const userProfile = await Profile.findOne({user : user._id})
+
+    if(!userProfile)    
+        return new ApiError(404 , 'User profile not found')
+
+    if(bio && bio.trim() !== '')
+        userProfile.bio = bio
+
+    if (social) {
+        userProfile.social = {
+            youtube: social.youtube || userProfile.social.youtube,
+            twitter: social.twitter || userProfile.social.twitter,
+            facebook: social.facebook || userProfile.social.facebook,
+            linkedin: social.linkedin || userProfile.social.linkedin,
+            instagram: social.instagram || userProfile.social.instagram
+        };
+    }
+
+    if(gender && gender.trim() !== '')
+        userProfile.gender = gender
+
+    await userProfile.save();
+
+    return res.status(200).json(
+        new ApiResponse(200, 'Profile updated successfully', userProfile)
+    );
+
+})
+export {signUp , signIn , logout , forgotPassword , resetPassword , updatePassword , updateAvatarImage , updateCoverImage , updateProfile}
