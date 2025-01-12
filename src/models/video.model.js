@@ -14,6 +14,7 @@ const videoSChema = new mongoose.Schema({
     },
     views : {
         type : Number,
+        default  : 0
     },
     isPublished : {
         type : Boolean,
@@ -25,6 +26,10 @@ const videoSChema = new mongoose.Schema({
     },
     contentType : {
         type : Enum['public', 'membersOnly'],
+    },
+    videoUrl : {
+        type : String,
+        required : true
     }
 }, { timestamps: true });
 

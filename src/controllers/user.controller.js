@@ -175,16 +175,16 @@ const forgotPassword = asyncHandler(async(req,res)=>{
     
     const {email} = req.body
     
-    const user = await User.findOne({ email });
-    if(!user)
+    const validUser = await User.findOne({ email });
+    if(!validUser)
         throw new ApiError(404 , 'User not found with this email')
 
-    const resetPasswordToken =  await user.generateResetPasswordToken()
+    const resetPasswordToken =  await validUser.generateResetPasswordToken()
 
     if(!resetPasswordToken)
         throw new ApiError(404 , 'Error while generating reset password token')
 
-    await user.save({ validateBeforeSave: false })
+    await validUser.save({ validateBeforeSave: false })
 })
 const resetPassword = asyncHandler(async(req,res)=>{
     const {resetPasswordToken } = req.params
