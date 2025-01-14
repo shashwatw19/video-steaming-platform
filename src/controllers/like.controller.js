@@ -2,7 +2,7 @@ import {Video} from '../models/video.model.js'
 import {Tweet} from '../models/tweet.models.js'
 import { Like } from '../models/likes.model.js'
 import {asyncHandler} from '../utils/asyncHandler.js'
-import {ApiError} from '../utils/apiError.js'
+import {ApiError} from '../utils/ApiError.js'
 // toggle video like
 const toggleVideoLike = asyncHandler(async(req , res)=>{
     const videoId = req.body.videoId

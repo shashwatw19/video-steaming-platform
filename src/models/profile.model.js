@@ -36,12 +36,12 @@ const profileSchema = new mongoose.Schema({
     gender : {
         type : String
     },
-    channel : [
+    channel : 
         {
             type : mongoose.Schema.Types.ObjectId,
-            ref : 'Channel'
+            ref : 'User'
         }
-    ]
+    
     
 },
 {timeStamps : true})
