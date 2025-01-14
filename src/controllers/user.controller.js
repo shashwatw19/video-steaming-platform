@@ -5,7 +5,7 @@ import {User} from "../models/user.model.js";
 import { uploadImageOnCloudinary } from "../utils/cloudinary.js";
 import { Otp } from "../models/otp.model.js";
 import {Profile} from '../models/profile.model.js'
-
+import mongoose from 'mongoose'
 const generateAccessAndRefreshToken = async(userId)=>{
     
     const user = await User.findById(userId)
@@ -309,4 +309,151 @@ const updateProfile = asyncHandler(async(req , res)=>{
     );
 
 })
-export {signUp , signIn , logout , forgotPassword , resetPassword , updatePassword , updateAvatarImage , updateCoverImage , updateProfile}
+// get userChannleDetails
+const getUserChannelDetails = asyncHandler(async(req,res)=>{
+    const {username}  = req.params
+
+    if(!username?.trim())
+        throw new ApiError(400 , 'username us required')
+
+    const channelDetails = await User.aggregate([
+        {
+            $match : {username : username?.toLowerCase()}
+        },
+        {   
+            // total no. of subscribers
+            $lookup : {
+                from : 'subscriptions',
+                localField : '_id',
+                foreignField : 'channel',
+                as : 'subscribers'
+            }
+        },
+        {
+            // total channel subscribed
+            $lookup : {
+                from : 'subscriptions',
+                localField : '_id',
+                foreignField : 'subscriber',
+                as : 'subscribedTo'
+            }
+        },
+        {
+            
+            $addFields : {
+                totalSubscribers : {
+                    $size : '$subscribers'
+                },
+                totalChannelSubcribed : {
+                    $size : '$subscribedTo'
+                },
+                isSubscribed : {
+                    $cond : {
+                        if : {$in : [req.user?._id , '$subscribers.subscriber']},
+                        then : true,
+                        else : false 
+                    }
+                }
+            }
+        },
+        {
+            $project : {
+                username : 1,
+                email : 1 ,
+                avatar : 1,
+                coverImage : 1,
+                totalSubscribers : 1,
+                totalChannelSubcribed : 1,
+                isSubscribed : 1,
+                createdAt : 1
+            }
+        }
+    ])
+    console.log('channelDetails' , channelDetails)
+
+    if(!channel?.length)
+        throw new ApiError(404 , 'Channel not found')
+
+    return res.status(201).json(
+        new ApiResponse(200 , 'Channel details fetched' , channelDetails[0])
+    )
+})
+
+// get user watch history
+const getWatchHistory = asyncHandler(async(req,res)=>{
+    const user = await User.aggregate([
+        {
+            $match : {
+                _id : new mongoose.Types.ObjectId(req.user._id)
+            }
+        },
+        {
+            $lookup : {
+                from : 'vidoes',
+                localField : 'watchHistory',
+                foreignField : '_id',
+                as : 'watchHistory',
+                pipeline: [
+                    {
+                        $lookup : {
+                            from : 'users',
+                            localField : 'owner',
+                            foreignField : '_id',
+                            as : 'owner',
+                            pipeline : [
+                                {
+                                    $project : {
+                                        username : 1,
+                                        avatar : 1
+                                    }
+                                }
+                            ]
+                        },
+                    },
+                    {
+                        $addFields : {
+                            owner : {
+                                $first : '$owner'
+                            } 
+                        }
+                    }
+                ]
+            }
+        },
+        
+    ])
+
+    if(!user?.length)
+        return res.status(201).json(
+            new ApiResponse( 200 , 'no watch history found'))
+
+    return res.status(201).json(
+        new ApiResponse(200 , 'watch history fetched' , user[0]?.watchHistory)
+    )
+})
+
+// refresh token
+
+const refresAccessToken = asyncHandler(async(req,res)=>{
+    const {token} = req.cookies || req.body
+
+    if(!token)
+        return new ApiError(401 , 'Unauthorized')
+    
+    const user = await user.findOne({token}).select('-password' , '-refreshToken')
+
+    const {accessToken , refreshToken} = await generateAccessAndRefreshToken(user._id)
+
+    const options = {
+        httpsOnly : true,
+        secure : true
+    }
+
+    return res.status(201).
+    cookie('accessToken' , accessToken , options).
+    cookie('refreshToken' , refreshToken , options).
+    json(
+        new ApiResponse(200 , 'Token Refreshed' , {accessToken , refreshToken})
+    )
+})
+export {signUp , signIn , logout , forgotPassword , resetPassword , updatePassword , updateAvatarImage , updateCoverImage , updateProfile , getUserChannelDetails , getWatchHistory , refresAccessToken}
