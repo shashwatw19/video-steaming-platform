@@ -11,3 +11,4 @@ router
 
 router.route("/channel/:subscriberId").get(getSubscribedChannels);
 
+export default router

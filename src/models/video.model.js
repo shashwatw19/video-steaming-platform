@@ -30,6 +30,10 @@ const videoSChema = new mongoose.Schema({
     videoUrl : {
         type : String,
         required : true
+    },
+    thumnail : {
+        type : String,
+        required : true
     }
 }, { timestamps: true });
 
