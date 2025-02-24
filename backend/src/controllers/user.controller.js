@@ -456,4 +456,14 @@ const refresAccessToken = asyncHandler(async(req,res)=>{
         new ApiResponse(200 , 'Token Refreshed' , {accessToken , refreshToken})
     )
 })
-export {signUp , signIn , logout , forgotPassword , resetPassword , updatePassword , updateAvatarImage , updateCoverImage , updateProfile , getUserChannelDetails , getWatchHistory , refresAccessToken}
+const getCurrentUser = asyncHandler(async(req, res) => {
+    return res
+    .status(200)
+    .json(new ApiResponse(
+        200,
+        req.user,
+        "User fetched successfully"
+    ))
+})
+
+export {signUp , signIn , logout , forgotPassword , resetPassword , updatePassword , updateAvatarImage , updateCoverImage , updateProfile , getUserChannelDetails , getWatchHistory , refresAccessToken ,getCurrentUser}

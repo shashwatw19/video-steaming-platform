@@ -4,15 +4,15 @@ import {ApiResponse} from '../utils/ApiResponse.js'
 import {ApiError} from '../utils/ApiError.js'
 // create tweet
 const createTweet = asyncHandler(async(req,res)=>{
-    const {content} = req.body
+    
+    const {content , imageUrls} = req.body
+    
     if(!content)
         throw new ApiError(403 , 'Content is required')
 
-    const imageUrls = Array.isArray() ? req.files.imageUrls.map(file => file.path) : []
-
     const newTweet = await Tweet.create({
         content,
-        imageUrls,
+        imageUrls : imageUrls.length ? imageUrls : null,
         owner : req.user._id
     })
 

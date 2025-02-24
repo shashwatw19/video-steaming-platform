@@ -48,12 +48,17 @@ const createVideo = asyncHandler(async(req,res)=>{
     }
 
     const videoFile = req.files.video[0]?.path
+    const thumbnail = req.files.thumbnail[0]?.path
     if(!videoFile){
         throw new ApiError(400 , 'video file is required')
+    }
+    if(!thumbnail){
+        throw new ApiError(400 , 'thumbnail is required')
     }
 
     try {
         const uploadVideo = await uploadImageOnCloudinary(videoFile)
+        const uploadThumbnail = await uploadImageOnCloudinary(thumbnail)
     } catch (error) {
         throw new ApiError(400 , 'error while uploading video' , error.message)
         
@@ -65,7 +70,8 @@ const createVideo = asyncHandler(async(req,res)=>{
         duration,
         contentType,
         owner : req.user._id,
-        isPublished : isPublished || false
+        isPublished : isPublished || false,
+        thumbnail : uploadThumbnail?.secure_url
     })
 
     if(!newVideo){
