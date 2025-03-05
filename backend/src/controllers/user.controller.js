@@ -6,6 +6,7 @@ import { uploadImageOnCloudinary } from "../utils/cloudinary.js";
 import { Otp } from "../models/otp.model.js";
 import {Profile} from '../models/profile.model.js'
 import mongoose from 'mongoose'
+
 const generateAccessAndRefreshToken = async(userId)=>{
     
     const user = await User.findById(userId)
@@ -28,16 +29,16 @@ const generateAccessAndRefreshToken = async(userId)=>{
 const signUp = asyncHandler(async(req,res)=>{
     
     const {username , email , password  , otp} = req.body
+    console.log(username , email , password , otp)
+    if([username , email , password].some(field => field?.trim() === ''))
+        throw new ApiError(400 , 'All fields are required')
 
-    if([username , email , password].some((field => field?.trim()) === ''))
-        return new ApiError(400 , 'All fields are required')
-
-    const existedUser = await User.find({
+    const existedUser = await User.findOne({
         $or : [{email},{username}]
     })
 
     if(existedUser)
-        return new ApiError(400 , 'User already exists with username or email')
+        throw new ApiError(400 , 'User already exists with username or email')
     
     const avatarImage = req.files?.avatar[0]?.path
     let avatarUrl = ''
@@ -62,13 +63,13 @@ const signUp = asyncHandler(async(req,res)=>{
     // verify email thorugh otp
     let currentOtp = otp
     
-    const generatedOtp = await Otp.find({email}).select('otp').sort({createdAt : -1}).limit(1)
-    
+    const generatedOtp = await Otp.find({email}).sort({createdAt : -1}).limit(1)
+    console.log(generatedOtp[0]?.otp)
     if(!generatedOtp)
-        return new ApiError(404 , 'Otp not found')
-
-    if(generatedOtp.otp !== currentOtp)
-        return new ApiError(401 , 'Invalid Otp')
+        throw new ApiError(404 , 'Otp not found')
+    
+    if(generatedOtp[0]?.otp != currentOtp)
+        throw new ApiError(401 , 'Invalid Otp')
 
 
     // create a new profileDetails for the user
@@ -86,7 +87,7 @@ const signUp = asyncHandler(async(req,res)=>{
     })
 
     if(!userProfile)
-        return new ApiError(403 , 'Error while creating user profile')
+        throw new ApiError(403 , 'Error while creating user profile')
 
 
     // craete a new User
@@ -99,10 +100,10 @@ const signUp = asyncHandler(async(req,res)=>{
         additionalDetails : userProfile._id
     })
         
-    const createdUser = await user.findById(user._id).select('-password' , '-refreshToken')
+    const createdUser = await User.findById(user._id).select('-password -refreshToken')
 
     if(!createdUser)
-        return new ApiError(500 , 'Something went wrong while creating User')
+        throw new ApiError(500 , 'Something went wrong while creating User')
 
     return res.status(201).json(
         new ApiResponse(200 , 'User created Successfully' , createdUser)
@@ -114,25 +115,25 @@ const signIn = asyncHandler(async(req,res)=>{
     
     const {email , password , username} = req.body
 
-    if([email , username].some((field=>field?.trim()) === ''))
-        return new ApiError(400 , 'Email or Username is required')
+    if([email , username].some(field=>field?.trim()) === '')
+        throw new ApiError(400 , 'Email or Username is required')
 
-    const user = await User.find({
+    const user = await User.findOne({
         $or : [{email},{username}]
-    }).select('-password' , '-refreshToken')
+    })
 
     if(!user)
-        return new ApiError(404 , 'User not found!')
-    
+        throw new ApiError(404 , 'User not found!')
+
     const isPasswordMatched = await user.matchPassword(password)
 
     if(!isPasswordMatched)  
-        return new ApiError(401 , 'inValid credentials')
+        throw new ApiError(401 , 'inValid credentials')
 
-    const {accessToken , refreshToken } = await generateAccessAndRefreshToken(user._id)
+    const {accessToken , refreshToken } = await generateAccessAndRefreshToken(user?._id)
 
     const options = {
-        httpsOnly : true,
+        httpOnly : true,
         secure : true
     }
 
@@ -167,7 +168,7 @@ const logout = asyncHandler(async(req,res)=>{
     .clearCookie('accessToken' , options)
     .clearCookie('refreshToken' , options)
     .json(
-        new ApiResponse(200 , 'User logged out successfully')
+        new ApiResponse(200 , 'User logged out successfully',{user : req.user.username})
     )
 })
 
@@ -176,31 +177,37 @@ const forgotPassword = asyncHandler(async(req,res)=>{
     const {email} = req.body
     
     const validUser = await User.findOne({ email });
+    
     if(!validUser)
         throw new ApiError(404 , 'User not found with this email')
 
     const resetPasswordToken =  await validUser.generateResetPasswordToken()
-
+    
     if(!resetPasswordToken)
         throw new ApiError(404 , 'Error while generating reset password token')
 
     await validUser.save({ validateBeforeSave: false })
+
+    return res.status(201).json(
+        new ApiResponse(200 , 'Reset Password Token generated successfully' , {resetPasswordToken})
+    )
 })
 const resetPassword = asyncHandler(async(req,res)=>{
-    const {resetPasswordToken } = req.params
+    
+    const {resetPasswordToken } = req.query
 
     const {password , newPassword} = req.body
-
-    const user = await User.findOne({resetPasswordToken}).select('-refreshToken' , '-password')
+    console.log(password , newPassword)
+    const user = await User.findOne({resetPasswordToken}).select('-refreshToken -password')
     
    
     if(!user)
         throw new ApiError(404 , 'Invalid reset password Token')
 
-    if(!user.matchPassword(password))
+    else if(!(await user.matchPassword(password)))
         throw new ApiError(401 , 'wrong credentials')
 
-    if(user.resetPasswordExpires < Date.now())
+    else if(user.resetPasswordExpires < Date.now())
         throw new ApiError(403 , 'resetPassword Token expired')
 
     user.password = newPassword

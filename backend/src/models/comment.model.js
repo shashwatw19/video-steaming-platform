@@ -16,7 +16,7 @@ const commentSchema = new mongoose.Schema({
         ref : 'Tweet',
     },
     video : {
-        type : mongoose.SChema.Types.ObjectId,
+        type : mongoose.Schema.Types.ObjectId,
         ref : 'Video'
     }
 },{timestamps : true})

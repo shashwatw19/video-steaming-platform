@@ -1,6 +1,9 @@
 import mongoose from "mongoose";
 import {mailSender} from '../utils/mailSender.js'
+import bcrypt from 'bcrypt'
+import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
+import {resetPasswordTemplate} from '../mail/template/resetPasswordTemplate.js'
 const userSchema = new mongoose.Schema({
     username : {
         type : String,
@@ -53,16 +56,22 @@ const userSchema = new mongoose.Schema({
 },{timestamps : true})
 
 
-userSchema.pre('save' , async(next)=>{
-    if(this.isModified('password'))
-        this.password = await bcrypt.hash(this.password , 10)
+userSchema.pre('save', async function (next) {
+    if (!this.isModified("password")) return next();
 
-    next()
-})
+    const hashedPassword = await bcrypt.hash(this.password, 10);
+    console.log("hashedPassword" , hashedPassword)
+    this.password = hashedPassword;
+    next();
+});
 
 userSchema.methods.matchPassword = async function(password){
+    if (!password || !this.password) {
+        throw new Error('Password and hashed password are required');
+    }
     return await bcrypt.compare(password , this.password)
 }
+
 
 userSchema.methods.generateAccessToken = async function(){
     const payload = {
@@ -94,22 +103,22 @@ userSchema.methods.generateRefreshToken = async function(){
 userSchema.methods.generateResetPasswordToken = function(){
     
     try {
+       
         const resetToken = crypto.randomBytes(20).toString('hex');
-        this.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-        this.resetPasswordExpires = Date.now() + 10 * 60 * 1000; // Token expires in 10 minutes
+        this.resetPasswordToken = resetToken
         return resetToken;
     }catch (error) {
-        console.log('Error while creating reset password token' , error)
+        console.log('Error while creating reset password token' , error.message)
         
     }
 };
 
-userSchema.pre('save' , async(next)=>{
+userSchema.pre('save' , async function(next){
     
     if(this.isModified('resetPasswordToken'))
-        await mailSender(this.email , 'Reset Password' , `Click on the link to reset password http://localhost:3000/resetpassword/${this.resetPasswordToken}`)
+        await mailSender(this.email , 'Reset Password' , resetPasswordTemplate( this.resetPasswordToken))
     
-    next()
+    next();
 })
 
 export const User = mongoose.model('user', userSchema)

@@ -1,6 +1,7 @@
-import { ApiError } from "../utils/ApiError"
-import { ApiResponse } from "../utils/ApiResponse"
-import { Subscription } from "../models/subscription.model"
+import { ApiError } from "../utils/ApiError.js"
+import { ApiResponse } from "../utils/ApiResponse.js"
+import { Subscription } from "../models/subscription.model.js"
+import { asyncHandler } from "../utils/asyncHandler.js"
 // toggle subscription
 const toggleSubscription = asyncHandler(async(req,res)=>{
     

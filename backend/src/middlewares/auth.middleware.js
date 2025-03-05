@@ -2,12 +2,12 @@ import jwt from 'jsonwebtoken'
 import dotenv from 'dotenv'
 import {User} from '../models/user.model.js'
 import {ApiError} from '../utils/ApiError.js'
-import {asyncHandler} from '../middlewares/async.middleware.js'
+import { asyncHandler } from '../utils/asyncHandler.js'
 dotenv.config()
 
 const verifyJwt = asyncHandler(async(req , res , next)=>{
     try {
-        const token = req.cookies?.token || req.headers("Authorization").replace("Bearer ","")
+        const token = req.cookies?.accessToken || req.headers("Authorization").replace("Bearer ","")
         if(!token)
             throw new ApiError(401,'Unauthorized request') 
          
@@ -19,7 +19,7 @@ const verifyJwt = asyncHandler(async(req , res , next)=>{
         req.user = user
         next()
         
-    } catch (error) {
+    }catch (error) {
         throw new ApiError(401 , 'token verification failed' , error.message)
     }
 })

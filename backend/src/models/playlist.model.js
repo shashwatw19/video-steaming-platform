@@ -2,7 +2,7 @@ import mongoose from 'mongoose'
 
 const playListSchema  = new mongoose.Schema({
     name : {
-        type : true,
+        type : String,
         required : true
     },
     description : {

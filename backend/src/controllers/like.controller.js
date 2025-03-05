@@ -1,5 +1,5 @@
 import {Video} from '../models/video.model.js'
-import {Tweet} from '../models/tweet.models.js'
+import {Tweet} from '../models/tweet.model.js'
 import { Like } from '../models/likes.model.js'
 import {asyncHandler} from '../utils/asyncHandler.js'
 import {ApiError} from '../utils/ApiError.js'

@@ -25,7 +25,8 @@ const videoSChema = new mongoose.Schema({
         ref : 'User'
     },
     contentType : {
-        type : Enum['public', 'membersOnly'],
+        type : String,
+        enum : ['public', 'membersOnly'],
     },
     videoUrl : {
         type : String,

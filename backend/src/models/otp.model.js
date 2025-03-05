@@ -1,5 +1,6 @@
 import mongoose from 'mongoose'
 import { mailSender } from '../utils/mailSender.js'
+import { emailVerficationTemplate } from '../mail/template/emailVerficationTemplate.js'
 const otpSchema = new mongoose.Schema({
     otp : {
         type : Number,
@@ -20,15 +21,18 @@ const otpSchema = new mongoose.Schema({
 const sendVerificationEmail = async(email , otp)=>{
     try{
         const mailResponse = await mailSender(email , 'Verfication Mail' , otp)
-        console.log('verification mail sent successfully' , mailResponse.response)
+        console.log('verification mail sent successfully' , mailResponse)
     }catch(err){
         console.log('error while sending verifcation mail' , err.message)
     }
 }
 
 otpSchema.pre('save', async function (next){
-    if(this.isNew)
-        await sendVerificationEmail(this.email , this.otp)
+    if(this.isNew){
+        console.log(this.otp)
+        await sendVerificationEmail(this.email , emailVerficationTemplate(this.otp))
+    }
+        
     next()
 })
 

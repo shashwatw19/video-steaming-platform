@@ -1,20 +1,21 @@
 import { IoIosSearch } from "react-icons/io"; 
-
+import { GiHamburgerMenu } from "react-icons/gi";
+import { AiOutlinePlusCircle } from "react-icons/ai";
 function Navbar() {
   return (
-    <header className='fixed top-0 w-full flex flex-row justify-between mx-auto h-16 px-4 bg-neutral-600 bg-opacity-75'>
+    <header className='fixed top-0 w-full flex items-center flex-row justify-between h-16 px-4 bg-neutral-600 bg-opacity-75'>
         <div className="flex flex-row items-center justify-around gap-3 ">
-            <button>click</button>
-            <p>logo</p>
+            <GiHamburgerMenu className="text-slate-100 text-xl"/>
+            <p className="font-bold underline">PLayZone</p>
         </div>
 
-        <div className="flex flex-row items-center">
+        <div className=" flex-row items-center hidden md:block">
           
                 
-                <div className="flex flex-row items-center rounded-md border border-slate-400 px-2">
+                <div className="flex flex-row items-center justify-around rounded-md border border-slate-400 px-2 ">
                     <form className='' >
                         <input type='text' 
-                        className='bg-transparent rounded-md px-4 py-1 outline-none border-none hidden lg:block' 
+                        className='bg-transparent w-[300px] rounded-md px-4 py-1 outline-none border-none' 
                         placeholder='Search...'
                         />
                     </form>
@@ -26,7 +27,7 @@ function Navbar() {
         </div>
 
         <div className='flex flex-row gap-3 items-center'>
-           <p>create</p>
+          <AiOutlinePlusCircle className="text-slate-100 text-2xl"/>
            <p>image for the user</p>     
         </div>
     </header>
