@@ -66,6 +66,7 @@ userSchema.pre('save', async function (next) {
 });
 
 userSchema.methods.matchPassword = async function(password){
+    
     if (!password || !this.password) {
         throw new Error('Password and hashed password are required');
     }

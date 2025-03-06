@@ -137,6 +137,10 @@ const signIn = asyncHandler(async(req,res)=>{
         secure : true
     }
 
+    user.refreshToken = undefined
+    user.accessToken = undefined
+    user.password = undefined
+
     return res.status(201)
     .cookie('accessToken' , accessToken, options)
     .cookie('refreshToken' , refreshToken , options)
@@ -195,26 +199,26 @@ const forgotPassword = asyncHandler(async(req,res)=>{
 const resetPassword = asyncHandler(async(req,res)=>{
     
     const {resetPasswordToken } = req.query
-
+  
     const {password , newPassword} = req.body
-    console.log(password , newPassword)
-    const user = await User.findOne({resetPasswordToken}).select('-refreshToken -password')
+
+    const user = await User.findOne({resetPasswordToken})
     
    
     if(!user)
         throw new ApiError(404 , 'Invalid reset password Token')
 
-    else if(!(await user.matchPassword(password)))
+    if(!(await user?.matchPassword(password)))
         throw new ApiError(401 , 'wrong credentials')
 
-    else if(user.resetPasswordExpires < Date.now())
+    if(user.resetPasswordExpires < Date.now())
         throw new ApiError(403 , 'resetPassword Token expired')
 
     user.password = newPassword
     user.resetPasswordToken = undefined
     user.resetPasswordExpires = undefined
 
-    await user.save()
+    await user.save();
 
     return res.status(201).json(
         new ApiResponse(200 , 'Password Reset Successfull' , { _id : user._id , username : user.username , email : user.email} )
@@ -222,76 +226,89 @@ const resetPassword = asyncHandler(async(req,res)=>{
 })
 
 const updatePassword = asyncHandler(async(req,res)=>{
-    const user = req.user._id
-    
+  
     const {password , newPassword} = req.body
-
-    const validUser = await user.findOne({_id}).select('-refreshtoken' , '-password')
+    console.log(password , newPassword)
+    const validUser = await User.findById(req.user?.id)
 
     if(!validUser)
-        return new ApiError(403 , 'User not found')
-    if(!validUser.matchPassword(password))
-        return new ApiError(401 , 'Invalid credentials')
+        throw new ApiError(403 , 'User not found')
+    
+    if(!(await validUser?.matchPassword(password)))
+        throw new ApiError(401 , 'Invalid credentials')
+    
+    if(await validUser?.matchPassword(newPassword))
+        return res.status(201).json(
+            new ApiResponse(200 , 'New password cannot be same as old password')
+    )
 
     validUser.password = newPassword
 
+    await validUser.save()
+
     return res.status(201).json(
-        new ApiResponse(200 , 'Password updated' , {validUser})
+        new ApiResponse(200 , 'Password updated!')
     )
 
 })
 
 const updateAvatarImage = asyncHandler(async(req,res)=>{
-    const user = req.user._id
+    const userId = req.user._id
 
-    const newAvatarImage = req.files?.avatar[0]?.path
-
+    const newAvatarImage = req.file.path
+    console.log(newAvatarImage)
     if(!newAvatarImage)
-        return new ApiError(400 , 'please provide an image')
+        throw new ApiError(400 , 'please provide an image')
 
     const response = await uploadImageOnCloudinary(newAvatarImage)
     
     if(!response)
-        return new ApiError(403 , 'error while uploading avatar image ')
+        throw new ApiError(403 , 'error while uploading avatar image ')
+
+    const user = await User.findById(userId)
+    if (!user)
+        throw new ApiError(404, 'User not found')
 
     user.avatar = response?.secure_url
 
-    user.save()
+    await user.save({validateBeforeSave : false})
 
     return res.status(201).json(
-        new ApiResponse(200 , 'Avatar iamge update' , {avatar : user.avatar})
+        new ApiResponse(200 , 'Avatar image updated' , {avatar : user.avatar})
     )
 })
 const updateCoverImage = asyncHandler(async(req,res)=>{
-    const user = req.user._id
+    const userId = req.user._id
 
-    const newCoverImage = req.files?.coverImage[0]?.path
+    const newCoverImage = req.file.path
 
     if(!newCoverImage)
-        return new ApiError(400 , 'please provide an image')
+        throw new ApiError(400 , 'please provide an image')
 
     const response = await uploadImageOnCloudinary(newCoverImage)
     
     if(!response)
-        return new ApiError(403 , 'error while uploading cover image ')
+        throw new ApiError(403 , 'error while uploading cover image ')
+    
+    const user = await User.findById(userId)
 
     user.coverImage = response?.secure_url
-
-    user.save()
+    
+    await user.save({validateBeforeSave : false})
 
     return res.status(201).json(
         new ApiResponse(200 , 'Avatar iamge update' , {coverImage : user.coverImage})
     )
 })
 const updateProfile = asyncHandler(async(req , res)=>{
-    const user = req.user._id
+    const _id = req.user.additionalDetails
 
     const {bio , social , gender} = req.body
 
-    const userProfile = await Profile.findOne({user : user._id})
+    const userProfile = await Profile.findById(_id)
 
     if(!userProfile)    
-        return new ApiError(404 , 'User profile not found')
+        throw new ApiError(404 , 'User profile not found')
 
     if(bio && bio.trim() !== '')
         userProfile.bio = bio
